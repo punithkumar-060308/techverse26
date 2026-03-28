@@ -48,19 +48,47 @@ const Settings = () => {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase
+    
+    // First check if profile exists
+    const { data: existing } = await supabase
       .from("profiles")
-      .update({
-        display_name: displayName,
-        username,
-        bio,
-        college_name: collegeName,
-        department,
-      })
-      .eq("user_id", user.id);
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    let error;
+    if (existing) {
+      // Update existing profile
+      const result = await supabase
+        .from("profiles")
+        .update({
+          display_name: displayName,
+          username,
+          bio,
+          college_name: collegeName,
+          department,
+        })
+        .eq("user_id", user.id);
+      error = result.error;
+    } else {
+      // Insert new profile if none exists
+      const result = await supabase
+        .from("profiles")
+        .insert({
+          user_id: user.id,
+          display_name: displayName,
+          username,
+          bio,
+          college_name: collegeName,
+          department,
+          college_email: user.email || null,
+        });
+      error = result.error;
+    }
 
     if (error) {
-      toast.error("Failed to save profile");
+      console.error("Profile save error:", error);
+      toast.error("Failed to save profile: " + error.message);
     } else {
       toast.success("Profile updated!");
     }
